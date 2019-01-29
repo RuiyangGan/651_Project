@@ -105,3 +105,6 @@ venv.bak/
 
 # Ignore the authentification file and
 # the files that contains edges and vertices
+github.auth
+edges.txt
+vertices.txt
