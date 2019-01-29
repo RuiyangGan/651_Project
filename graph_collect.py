@@ -33,27 +33,35 @@ while g.get_rate_limit().raw_data['core']['remaining'] >= 0:
         # collect contributors info of a specific repository
         a = g.get_repos(since=rand_int)[0]
         V = [i.id for i in a.get_contributors()]
-        # Store the edges if there are more than two contributors
-        if len(V) > 1:
-            E = [e for e in product(V, [a.id])]
-            edges.extend(E)
+        # Store the randomly sampled edges
+        E = [e for e in product(V, [a.id])]
+        edges.extend(E)
+
     except RateLimitExceededException as e1:
         # If current user's rate limit used up, switch to the next user
         # until no more user in the pool; If no more user is available
         # break out the loop
+
+        # Write the edges into the edges.txt file
+        with open('edges.txt', 'a') as f:
+            f.write('\n'.join([str(e) for e in edges]))
+            f.write('\n')
+        # Clear the edges list
+        edges = []
+
         if i < num_of_acct-1:
             i += 1
             g = g_pool[i]
             continue
         else:
             break
+
     except (GithubException, Exception) as e2:
         # For the other kind of exception (such as strange 404 error, etc.), write
         # the elements in vertices and edges into respective text file
-        with open('vertices.txt', 'a') as f1:
-            f1.write('\n'.join([str(v) for v in vertices]))
-        with open('edges.txt', 'a') as f2:
-            f2.write('\n'.join([str(e) for e in edges]))
-        # Clear list in vertices and edges
-        vertices, edges = ([], [])
+        with open('edges.txt', 'a') as f:
+            f.write('\n'.join([str(e) for e in edges]))
+            f.write('\n')
+        # Clear list in edges
+        edges = []
         continue
