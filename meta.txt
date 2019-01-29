@@ -1,0 +1,6 @@
+The edges.txt contains edges in a bipartite graph. The contribution networks of GitHub can be divided into two
+parts: Users and Repositories. If a GitHub repo is randomly sampled, then we collect all the users who have contributed
+to this particular repo. Thus we can form the edges between the user(s) and this particular repo. The file of edges
+have this particular strucutre:
+edges.txt:
+User_ID  Repo_ID
