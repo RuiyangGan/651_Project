@@ -21,8 +21,6 @@ for user in auth_sections:
 # Suppose we now collect a bipartite graph, then we will need to keep track
 # of information about both the repository and the user(s)
 edges = []
-num_of_acct = len(g_pool)
-i = 0
 g = g_pool[i]
 
 # Sending requests to github's server until reaching the rate limits
@@ -48,10 +46,12 @@ while g.get_rate_limit().raw_data['core']['remaining'] >= 0:
             f.write('\n')
         # Clear the edges list
         edges = []
-
-        if i < num_of_acct-1:
-            i += 1
-            g = g_pool[i]
+        # Check if there is any GitHub instance with remaining rate_limit >= 10
+        remain_rates = [g.get_rate_limit().raw_data['core']['remaining']
+                        for g in g_pool]
+        if any([rl >= 10 for rl in remain_rates]):
+            i = np.min(np.where(np.array(remain_rates) >= 10))
+            g = g_pool[int(i)]
             continue
         else:
             break
