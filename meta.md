@@ -1,9 +1,16 @@
-The edges.txt contains edges in a bipartite graph. The contribution networks of GitHub can be divided into two
-parts: Users and Repositories. If a GitHub repo is randomly sampled, then we collect all the users who have contributed
-to this particular repo. Thus we can form the edges between the user(s) and this particular repo. The file of edges
-have this particular strucutre:
-edges.txt:
-User_ID  Repo_ID
+The fork_edges.txt and contrib_edges.txt are the files that contain edges between GitHub
+users and GitHub repos. 
 
-In this way, we have a biparite graph G = (E, U, R), where e \in E is (u,r) for u \in U, r \in R. In this case,
-U is the set of users and R is the set of repos.
+fork_edges.txt contains the edges from GitHub repos to GitHub users. Such edge is formed if 
+the user forks from a repo.
+The structure is as following:
+from_node   to_node
+repo_id     user_id
+
+contrib_edges.txt contains the edges from GitHub users to GitHub repos. Such edges is formed
+if the user contributes to a repo.
+The strucutre is as following:
+from_node   to_node
+user_id     repo_id
+
+In this way, we have a biparite graph $G = (E, U, R)$, where $e \in E$ is $(u,r)$ for  $u \in U$, $r \in R$. In this case, U is the set of users and R is the set of repos.

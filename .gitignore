@@ -104,7 +104,8 @@ venv.bak/
 .mypy_cache/
 
 # Ignore the authentification file and
-# the files that contains edges and vertices
+# the files that contains the fork and
+# contributor edges
 github.auth
-edges.txt
-vertices.txt
+fork_edges.txt
+contrib_edges.txt
