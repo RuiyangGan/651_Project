@@ -1,5 +1,6 @@
 from github import Github, GithubException, RateLimitExceededException
 import numpy as np
+import gc
 from itertools import product
 from configparser import ConfigParser
 
@@ -18,34 +19,57 @@ for user in auth_sections:
     g = Github(**auth)
     g_pool.append(g)
 
-# Suppose we now collect a bipartite graph, then we will need to keep track
-# of information about both the repository and the user(s)
-edges = []
+# We can form the sample GitHub network by using its contribute
+# and fork features. An edge from a user to a repo is formed if
+# the user contributes to the repo; If a user forks from a repo,
+# then there exists an edge from this repo to this user. This
+# sample graph is a bipartite graph, as every edge connects a user
+# to a repo. For the ease of storage, we will use two list to
+# represent these two types of edges, called fork_edges and
+# contrib_edges
+
+fork_edges = []
+contrib_edges = []
 g = g_pool[0]
+r = []
 
 # Sending requests to github's server until reaching the rate limits
 while True:
     try:
         # generate a random number to select a random repository
+        # that is not forked from other user
         rand_int = np.random.randint(5.7e7)
-        # collect contributors info of a specific repository
-        a = g.get_repos(since=rand_int)[0]
-        V = [i.id for i in a.get_contributors()]
-        # Store the randomly sampled edges
-        E = [e for e in product(V, [a.id])]
-        edges.extend(E)
+        r = g.get_repos(since=rand_int)[0]
+
+        if not r.fork:
+            # collect contributors and forks info of a specific repository
+            U_contrib = [i.id for i in r.get_contributors()]
+            U_fork = [i.id for i in r.get_forks()]
+            # Store the randomly sampled fork edges and contributors edge
+            contribE = [ce for ce in product(U_contrib, [r.id])]
+            forkE = [fe for fe in product([r.id], U_fork)]
+            contrib_edges.extend(contribE)
+            fork_edges.extend(forkE)
+        else:
+            continue
 
     except RateLimitExceededException as e1:
         # If current user's rate limit used up, switch to the next user
         # until no more user in the pool; If no more user is available
         # break out the loop
 
-        # Write the edges into the edges.txt file
-        with open('edges.txt', 'a') as f:
-            f.write('\n'.join([str(e) for e in edges]))
-            f.write('\n')
+        # Write the edges into the respective edges file
+        if contrib_edges is not None:
+            with open('contrib_edges.txt', 'a') as f1:
+                f1.write('\n'.join([str(e) for e in contrib_edges]))
+                f1.write('\n')
+        if fork_edges is not None:
+            with open('fork_edges.txt', 'a') as f2:
+                f2.write('\n'.join([str(e) for e in fork_edges]))
+                f2.write('\n')
+
         # Clear the edges list
-        edges = []
+        fork_edges, contrib_edges = ([], [])
         # Check if there is any GitHub instance with remaining rate_limit >= 10
         remain_rates = [g.get_rate_limit().raw_data['core']['remaining']
                         for g in g_pool]
@@ -56,12 +80,16 @@ while True:
         else:
             break
 
-    except (GithubException, Exception) as e2:
+    except (GithubException) as e2:
         # For the other kind of exception (such as 404 and 502 error, etc.), write
         # the elements in vertices and edges into respective text file
-        with open('edges.txt', 'a') as f:
-            f.write('\n'.join([str(e) for e in edges]))
-            f.write('\n')
+        with open('contrib_edges.txt', 'a') as f1:
+            f1.write('\n'.join([str(e) for e in contrib_edges]))
+            f1.write('\n')
+        if fork_edges is not None:
+            with open('fork_edges.txt', 'a') as f2:
+                f2.write('\n'.join([str(e) for e in fork_edges]))
+                f2.write('\n')
         # Clear list in edges
-        edges = []
+        fork_edges, contrib_edges = ([], [])
         continue
