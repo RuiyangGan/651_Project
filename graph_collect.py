@@ -24,7 +24,7 @@ edges = []
 g = g_pool[0]
 
 # Sending requests to github's server until reaching the rate limits
-while g.get_rate_limit().raw_data['core']['remaining'] >= 0:
+while True:
     try:
         # generate a random number to select a random repository
         rand_int = np.random.randint(5.7e7)
@@ -57,7 +57,7 @@ while g.get_rate_limit().raw_data['core']['remaining'] >= 0:
             break
 
     except (GithubException, Exception) as e2:
-        # For the other kind of exception (such as strange 404 error, etc.), write
+        # For the other kind of exception (such as 404 and 502 error, etc.), write
         # the elements in vertices and edges into respective text file
         with open('edges.txt', 'a') as f:
             f.write('\n'.join([str(e) for e in edges]))
