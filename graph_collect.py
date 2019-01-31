@@ -31,17 +31,20 @@ for user in auth_sections:
 fork_edges = []
 contrib_edges = []
 g = g_pool[0]
-r = []
+with open('counter.txt', 'r') as f:
+    last = int(f.readline());
 
 # Sending requests to github's server until reaching the rate limits
 while True:
     try:
         # generate a random number to select a random repository
         # that is not forked from other user
-        rand_int = np.random.randint(5.7e7)
-        r = g.get_repos(since=rand_int)[0]
+        p = g.get_repos(since=last)[0:100]
+        r_not_fork = [a for a in p if not a.fork]
+        last = p[99].id
+        print(last)
 
-        if not r.fork:
+        for r in r_not_fork:
             # collect contributors and forks info of a specific repository
             U_contrib = [i.id for i in r.get_contributors()]
             U_fork = [i.id for i in r.get_forks()]
@@ -50,8 +53,6 @@ while True:
             forkE = [fe for fe in product([r.id], U_fork)]
             contrib_edges.extend(contribE)
             fork_edges.extend(forkE)
-        else:
-            continue
 
     except RateLimitExceededException as e1:
         # If current user's rate limit used up, switch to the next user
@@ -59,14 +60,12 @@ while True:
         # break out the loop
 
         # Write the edges into the respective edges file
-        if contrib_edges is not None:
-            with open('contrib_edges.txt', 'a') as f1:
-                f1.write('\n'.join([str(e) for e in contrib_edges]))
-                f1.write('\n')
-        if fork_edges is not None:
-            with open('fork_edges.txt', 'a') as f2:
-                f2.write('\n'.join([str(e) for e in fork_edges]))
-                f2.write('\n')
+        with open('contrib_edges.txt', 'a') as f1:
+            f1.write('\n'.join([str(e) for e in contrib_edges]))
+            f1.write('\n')
+        with open('fork_edges.txt', 'a') as f2:
+            f2.write('\n'.join([str(e) for e in fork_edges]))
+            f2.write('\n')
 
         # Clear the edges list
         fork_edges, contrib_edges = ([], [])
@@ -78,18 +77,21 @@ while True:
             g = g_pool[int(i)]
             continue
         else:
+            with open('counter.txt', 'w') as f:
+                f.write(str(last));
             break
 
-    except (GithubException) as e2:
+    except (GithubException, Exception) as e2:
         # For the other kind of exception (such as 404 and 502 error, etc.), write
         # the elements in vertices and edges into respective text file
         with open('contrib_edges.txt', 'a') as f1:
             f1.write('\n'.join([str(e) for e in contrib_edges]))
             f1.write('\n')
-        if fork_edges is not None:
-            with open('fork_edges.txt', 'a') as f2:
-                f2.write('\n'.join([str(e) for e in fork_edges]))
-                f2.write('\n')
+        with open('fork_edges.txt', 'a') as f2:
+            f2.write('\n'.join([str(e) for e in fork_edges]))
+            f2.write('\n')
+        with open('counter.txt', 'w') as f:
+            f.write(str(last));
         # Clear list in edges
         fork_edges, contrib_edges = ([], [])
         continue
