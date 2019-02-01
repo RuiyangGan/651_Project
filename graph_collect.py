@@ -1,6 +1,5 @@
 from github import Github, GithubException, RateLimitExceededException
 import numpy as np
-import gc
 from itertools import product
 from configparser import ConfigParser
 
@@ -30,7 +29,7 @@ for user in auth_sections:
 
 fork_edges = []
 contrib_edges = []
-g = g_pool[0]
+g = g_pool[2]
 with open('counter.txt', 'r') as f:
     last = int(f.readline());
 
@@ -52,25 +51,26 @@ def edge_Storage(contrib_edges, fork_edges, last):
 # Sending requests to github's server until reaching the rate limits
 while True:
     try:
-        # generate a random number to select a random repository
-        # that is not forked from other user
-        r_not_fork = [a for a in g.get_repos(since=last)[0:100]
-                      if not a.fork]
         last = g.get_repos(since=last)[99].id
+        print(last)
 
-        for r in r_not_fork:
-            print(r.id)
-            # collect contributors and forks info of a specific repository
-            U_contrib = [i.id for i in r.get_contributors()]
-            U_fork = [i.id for i in r.get_forks()]
-            # Store the randomly sampled fork edges and contributors edge
-            contribE = [ce for ce in product(U_contrib, [r.id])]
-            forkE = [fe for fe in product([r.id], U_fork)]
-            contrib_edges.extend(contribE)
-            fork_edges.extend(forkE)
-        
+        for r in g.get_repos(since=last)[0:100]:
+            if not r.fork:
+                # collect contributors of the repository if it is a source
+                # repository and form edges from its contributors to the repo
+                U_contrib = [i.id for i in r.get_contributors()]
+                # Store the randomly sampled fork edges and contributors edge
+                contribE = [ce for ce in product(U_contrib, [r.id])]
+                contrib_edges.extend(contribE)
+            else:
+                # If it is a fork repository, collect the parent of this
+                # fork repository and form edge from the parent repo to the
+                # fork repo's ower
+                forkE = [(r.parent.id, r.owner.id)]
+                fork_edges.extend(forkE)
+
         count += 1
-        if count % 100:
+        if count % 1000:
             edge_Storage(contrib_edges, fork_edges, last)
             fork_edges, contrib_edges = ([], [])
 
