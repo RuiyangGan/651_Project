@@ -29,7 +29,7 @@ for user in auth_sections:
 
 fork_edges = []
 contrib_edges = []
-g = g_pool[2]
+g = g_pool[1]
 with open('counter.txt', 'r') as f:
     last = int(f.readline());
 
@@ -51,10 +51,9 @@ def edge_Storage(contrib_edges, fork_edges, last):
 # Sending requests to github's server until reaching the rate limits
 while True:
     try:
-        last = g.get_repos(since=last)[99].id
-        print(last)
-
         for r in g.get_repos(since=last)[0:100]:
+            last = r.id
+            print(last)
             if not r.fork:
                 # collect contributors of the repository if it is a source
                 # repository and form edges from its contributors to the repo
@@ -70,7 +69,7 @@ while True:
                 fork_edges.extend(forkE)
 
         count += 1
-        if count % 1000:
+        if count % 1000 == 0:
             edge_Storage(contrib_edges, fork_edges, last)
             fork_edges, contrib_edges = ([], [])
 
