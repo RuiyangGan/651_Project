@@ -25,7 +25,7 @@ Ruiyang Gan
 4. I didn't have an idea on how to use the message passing functionality to implement algorithms such as graph spectrum and other community detection algorithms.
 
 
-## What I aim to complete this upcoming Week (Week 4, Feb 5 - Feb 12)
+## What I aim to complete this upcoming Week (Week 5, Feb 12 - Feb 19)
 
 1. Learn more about the message-passing functionality in graphframe
 
