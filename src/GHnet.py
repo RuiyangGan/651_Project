@@ -1,10 +1,7 @@
-# Function library for graphframe-related computation
-# Author: Ruiyang Gan
-
 from pyspark.sql import SparkSession
-from pyspark.conf
+from pyspark import SparkConf
+import numpy as np
 from graphframes import *
-from parse_edges import parse_edges
 import matplotlib.pyplot as plt
 import os.path
 import sys
@@ -15,36 +12,21 @@ class GHnet:
     attributes related to GitHub forking and contribution network
     """
 
-    def __init__(self, contrib_edges, fork_edges):
-        # Check if contrib_edges and fork_edges are file or list; if
-        # it is a file, then parse the file to create a list; else, just
-        # use the list of tuples
-        if os.path.isfile(contrib_edges) & os.path.isfile(contrib_edges):
-            contrib_edges, fork_Edges = (parse_edges(contrib_edges, 'c'),
-                                         parse_edges(fork_Edges, 'f'))
-        self.adjacency_list = contrib_edges + fork_edges
-        # Create the list of vertices
-        vertices = [(v,) for v in set([l for e in edges for l in e])]
-
-        # Create a Spark session
-        self.SS = SparkSession.builder.getOrCreate()
-
+    def __init__(self, vertices_pq, edges_pq):
         # Create configuration for Spark Session
-        conf = self.SS._conf \
+        conf = SparkConf() \
             .setAll([('spark.executor.memory', '8g'),
-                     ('spark.executor.cores', '4'),
-                     ('spark.cores.max', '4'),
+                     ('spark.executor.cores', '3'),
+                     ('spark.cores.max', '3'),
                      ('spark.driver.memory','8g'),
-                     ('spark.app.name', 'GHnet'),
                      ('spark.sql.execution.arrow.enabled', True)])
 
-        # Stop current spark session and create a new one with new config
-        self.SS.stop()
+        # Create a spark session
         self.SS = SparkSession.builder.config(conf=conf).getOrCreate()
 
         # Construct the vertices and edges DataFrame
-        vertices_df = self.SS.createDataFrame(vertices, ['id'])
-        edges_df = self.SS.createDataFrame(edges, ['src', 'dst'])
+        vertices_df = self.SS.read.parquet(vertices_pq)
+        edges_df = self.SS.read.parquet(edges_pq)
 
         # Create the graphframe object
         self.gf = GraphFrame(vertices_df, edges_df)
@@ -82,8 +64,8 @@ class GHnet:
 
         # If asked for plot, plot the empirical degree distribution function
         # of out Degrees of repos
-        if plot & id is None:
-            samp_probs = np.linspace(0, 1, int(1e5)).tolist()
+        if plot and (id is None):
+            samp_probs = np.linspace(0, 1, int(1e3)).tolist()
             degree_quantile = degree_dtf.stat \
                     .approxQuantile(col=colName,
                                     probabilities=samp_probs,
@@ -91,8 +73,7 @@ class GHnet:
             plt.figure(figsize=(10, 10))
             plt.axis([0,
                      degree_dtf.agg({colName:'max'}) \
-                             .collect()[0],
-                     0, 1])
+                             .collect()[0], 0, 1])
 
             plt.plot(np.log(degree_quantile),
                      np.log([1 - i for i in samp_probs]),
