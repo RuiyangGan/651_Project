@@ -106,7 +106,8 @@ venv.bak/
 # GitHub authentification
 github.auth
 
-# Text data file
+# Different formats of storage
 data/*.txt
+data/*.parquet
 
 
