@@ -69,7 +69,7 @@ def txt_to_pq(contrib_edge_file, fork_edge_file, data_dir = 'data'):
     Keyword Arguments:
 
     contrib_edge_file, fork_edge_file -- Two text files that contains
-    different types of edges. 
+    different types of edges.
     """
     contrib_edges, fork_edges = (parse_edges(contrib_edge_file, 'c'),
                                  parse_edges(fork_edge_file, 'f'))
