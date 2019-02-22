@@ -53,8 +53,8 @@ def list_to_pq(contrib_edges, fork_edges, data_dir):
     vertices = [(v,) for v in set([l for e in edges for l in e])]
     vertices_pd = pd.DataFrame(vertices, columns = ['id'])
     edges_pd = pd.DataFrame(edges, columns = ['src', 'dst'])
-    edges_table = pa.Table.from_pandas(edges_pd)
-    vertices_table = pa.Table.from_pandas(vertices_pd)
+    edges_table = pa.Table.from_pandas(edges_pd, preserve_index = False)
+    vertices_table = pa.Table.from_pandas(vertices_pd, preserve_index = False)
 
     # Write to data folder in parquet format
     pq.write_table(vertices_table, os.path.join(data_dir, 'vertices.parquet'))
