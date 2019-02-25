@@ -13,6 +13,7 @@ from graphframes.lib import AggregateMessages as AM
 from collections import Counter
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import sys
 
 
@@ -107,6 +108,12 @@ class GHnet:
         pass
 
 
+    def delta(x, y):
+            if any([a is None for a in [x,y]]) or (x != y):
+                return 0
+            else:
+                return 1
+
     def Modularity(gf):
         """ Calculate the modularity of the given graphframe with
         label assignment to each vertex
@@ -117,17 +124,56 @@ class GHnet:
         assignment of the vertices. Labels should have the same length
         as the number of rows in the self.gf.vertices data frame
         """
-        # Get the in and out degree of each node
-        outDegree = gf.outDegrees.cache()
-        inDegree = gf.inDegrees.cache()
-        delta = F.udf(lambda x, y: 1 if x == y else 0,
-                      types.IntegerType())
+       # Create a new graphframe object with labels attached
+        outDegree = gf.outDegrees.select("*").toPandas()
+        inDegree = gf.inDegrees.select("*").toPandas()
+        E = gf.edges.select("*").toPandas()
+        V = gf.vertices.select("*").toPandas()
 
-        #
+        f = len(E.loc[E['src'] < 0])
+        c = len(E.loc[E['src'] > 0])
 
+        users = V.loc[V['nodeType'] == 1]
+        repos = V.loc[V['nodeType'] == 2]
 
+        Q_c = 0
+        for user in users.itertuples():
+            if len(inDegree.loc[inDegree['id'] == user.id]) != 0:
+                k_in = inDegree.loc[inDegree['id'] == user.id]['inDegree']
+            else:
+                k_in = 0
+            for repo in repos.itertuples():
+                if len(outDegree.loc[outDegree['id'] == repo.id]) != 0:
+                    k_out = outDegree.loc[outDegree['id'] == repo.id]['outDegree']
+                else:
+                    k_out = 0
+                if len(E.loc[(E['src'] == user.id) & (E['dst'] == repo.id)]) != 0:
+                    A = 1
+                else:
+                    A = 0
+                Q_c += Q_c + (A - k_in*k_out/c)*delta(user.label, repo.label)
+        Q_c /= c
 
+        Q_f = 0
+        for repo in repos.itertuples():
+            if len(inDegree.loc[inDegree['id'] == repo.id]) != 0:
+                k_out = inDegree.loc[inDegree['id'] == repo.id]['inDegree']
+            else:
+                k_out = 0
+            for user in users.itertuples():
+                if len(outDegree.loc[outDegree['id'] == user.id]) != 0:
+                    k_out = outDegree.loc[outDegree['id'] == user.id]['outDegree']
+                else:
+                    k_out = 0
+                if len(E.loc[(E['src'] == repo.id) & (E['dst'] == user.id)]) != 0:
+                    A = 1
+                else:
+                    A = 0
+                Q_f += Q_f + (A - k_in*k_out/c)*delta(user.label, repo.label)
+        Q_f /= f
 
+        Q = Q_c + Q_f
+        return Q
 
 
 
