@@ -100,14 +100,6 @@ class GHnet:
         return degree_dtf
 
 
-    def userPageRank(self):
-        pass
-
-
-    def repoPageRank(self):
-        pass
-
-
     def Modularity(gf):
         """ Calculate the modularity of the given graphframe with
         label assignment to each vertex
@@ -120,8 +112,12 @@ class GHnet:
         """
         V = gf.vertice.cache()
         E = gf.edges.select("*").toPandas()
-        f = E.filter('src < 0').count()
-        c = E.filter('src > 0').count()
+        f = len(E.loc[E['src'] < 0])
+        c = len(E.loc[E['src'] < 0])
+
+        # Turn the edge table E into a dictionary, where each key
+        # is a tuple containing the edge and all value is 1
+        E_hash = {k:1 for k in product(E['src'], E['dst'])}
 
         # Attach the indegree and outdegree for the vertices
         inDegree, outDegree = (gf.inDegrees(), gf.outDegrees())
@@ -132,28 +128,48 @@ class GHnet:
 
         # Define pandas UDAF to compute the modualrity within a single
         # label group
-        @pandas_udf("int", PandasUDFType.GROUPED_AGG)
-        def group_modularity(label_group):
+        @pandas_udf("int", PandasUDFType.AGG)
+        def group_modularity(ID, nodeType, label, inDegree, outDegree):
             # For each group, split the nodes into two parts by node type
-            users = label_group.loc[label_group['nodeType'] == 1]
-            repos = label_group.loc[label_group['nodeType'] == 2]
+            users = [{i, l, inD, outD} for (i, nT, l, inD, outD)
+                    in zip(ID, nodeType, label, inDegree, outDegree)
+                    if nT == 1]
+            repos = [{i, l, inD, outD} for (i, nT, l, inD, outD)
+                    in zip(ID, nodeType, label, inDegree, outDegree)
+                    if nT == 2]
+            users = pd.DataFrame(users, columns = ['id', 'label',
+                                                   'inDegree', 'outDegree'])
+            repos = pd.DataFrame(repos, columns = ['id', 'label',
+                                                   'inDegree', 'outDegree'])
 
             # Calculate indegree*outdegree/f (or c) for both users and labels
             # and call it kappa
-            kappa_c = users[]
-            kappa_f = int(repos['inDegree'])*int(users['outDegree'])/f
+            kappa_c = {k:k[0]*k[1]/c
+                       for k in product(users['id'], repos['id'])}
+            kappa_f = {k:k[0]*k[1]/f for
+                       k in product(repos['id'], users['id'])}
 
-            a = [-K for K in if else ]
+            # Calculate Modularity indurced from users to repos and
+            # repos to users
+            Q_c = sum([-kappa_c[k]
+                      if E_hash.get_value(k) is Not None else 1 - kappa_c[k]
+                      for k in kappa_c.keys()])
+            Q_f = sum([-kappa_f[k]
+                      if E_hash.get_value(k) is not None else 1 - kappa_f[k]
+                      for k in kappa_f.keys()])
+            # Sum the two types of modularity
+            Q = Q_c + Q_f
+            return Q
 
 
+        Q = V.filter(V['label'].isNotNull()) \ # Filter the nodes without a label
+            .group_by("label") \ # Group by label
+            # Calculate the modularity within a label group
+            .agg(group_modularity(V['id', 'nodeType', 'label', 'inDegree',
+                                    'outDegree']).alias('Q')) \
+            .agg(F.sum(F.col('Q'))).collect()   # Sum modularities for all groups
 
-
-        # Calculate the modualrity within a label group for both
-        # users and repos
-
-        # For each source node type, calculate the modularity
-
-        return Q
+        return Q/(f+c)
 
 
 
