@@ -10,7 +10,7 @@ from graphframes import GraphFrame
 from graphframes.lib import AggregateMessages as AM
 
 # python package dependency
-from collections import Counter
+from collections import Counter, Product
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -108,12 +108,6 @@ class GHnet:
         pass
 
 
-    def delta(x, y):
-            if any([a is None for a in [x,y]]) or (x != y):
-                return 0
-            else:
-                return 1
-
     def Modularity(gf):
         """ Calculate the modularity of the given graphframe with
         label assignment to each vertex
@@ -124,55 +118,41 @@ class GHnet:
         assignment of the vertices. Labels should have the same length
         as the number of rows in the self.gf.vertices data frame
         """
-       # Create a new graphframe object with labels attached
-        outDegree = gf.outDegrees.select("*").toPandas()
-        inDegree = gf.inDegrees.select("*").toPandas()
+        V = gf.vertice.cache()
         E = gf.edges.select("*").toPandas()
-        V = gf.vertices.select("*").toPandas()
+        f = E.filter('src < 0').count()
+        c = E.filter('src > 0').count()
 
-        f = len(E.loc[E['src'] < 0])
-        c = len(E.loc[E['src'] > 0])
+        # Attach the indegree and outdegree for the vertices
+        inDegree, outDegree = (gf.inDegrees(), gf.outDegrees())
+        V = V.join(inDegree, V['id'] == inDegree['id'], 'left_outer')
+        V = V.join(outDegree, V['id'] == outDegree['id'], 'left_outer')
+        # Let null entry in the degree column to be 0
+        V = V.na.fill('inDegree':0, 'outDegree':0)
 
-        users = V.loc[V['nodeType'] == 1]
-        repos = V.loc[V['nodeType'] == 2]
+        # Define pandas UDAF to compute the modualrity within a single
+        # label group
+        @pandas_udf("int", PandasUDFType.GROUPED_AGG)
+        def group_modularity(label_group):
+            # For each group, split the nodes into two parts by node type
+            users = label_group.loc[label_group['nodeType'] == 1]
+            repos = label_group.loc[label_group['nodeType'] == 2]
 
-        Q_c = 0
-        for user in users.itertuples():
-            if len(inDegree.loc[inDegree['id'] == user.id]) != 0:
-                k_in = inDegree.loc[inDegree['id'] == user.id]['inDegree']
-            else:
-                k_in = 0
-            for repo in repos.itertuples():
-                if len(outDegree.loc[outDegree['id'] == repo.id]) != 0:
-                    k_out = outDegree.loc[outDegree['id'] == repo.id]['outDegree']
-                else:
-                    k_out = 0
-                if len(E.loc[(E['src'] == user.id) & (E['dst'] == repo.id)]) != 0:
-                    A = 1
-                else:
-                    A = 0
-                Q_c += Q_c + (A - k_in*k_out/c)*delta(user.label, repo.label)
-        Q_c /= c
+            # Calculate indegree*outdegree/f (or c) for both users and labels
+            # and call it kappa
+            kappa_c = users[]
+            kappa_f = int(repos['inDegree'])*int(users['outDegree'])/f
 
-        Q_f = 0
-        for repo in repos.itertuples():
-            if len(inDegree.loc[inDegree['id'] == repo.id]) != 0:
-                k_out = inDegree.loc[inDegree['id'] == repo.id]['inDegree']
-            else:
-                k_out = 0
-            for user in users.itertuples():
-                if len(outDegree.loc[outDegree['id'] == user.id]) != 0:
-                    k_out = outDegree.loc[outDegree['id'] == user.id]['outDegree']
-                else:
-                    k_out = 0
-                if len(E.loc[(E['src'] == repo.id) & (E['dst'] == user.id)]) != 0:
-                    A = 1
-                else:
-                    A = 0
-                Q_f += Q_f + (A - k_in*k_out/c)*delta(user.label, repo.label)
-        Q_f /= f
+            a = [-K for K in if else ]
 
-        Q = Q_c + Q_f
+
+
+
+        # Calculate the modualrity within a label group for both
+        # users and repos
+
+        # For each source node type, calculate the modularity
+
         return Q
 
 
