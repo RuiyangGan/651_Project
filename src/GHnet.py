@@ -10,7 +10,8 @@ from graphframes import GraphFrame
 from graphframes.lib import AggregateMessages as AM
 
 # python package dependency
-from collections import Counter, Product
+from collections import Counter
+from itertools import product
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -99,7 +100,7 @@ class GHnet:
                     else 'Contribution degree distribution')
         return degree_dtf
 
-
+    @staticmethod
     def Modularity(gf):
         """ Calculate the modularity of the given graphframe with
         label assignment to each vertex
@@ -110,26 +111,27 @@ class GHnet:
         assignment of the vertices. Labels should have the same length
         as the number of rows in the self.gf.vertices data frame
         """
-        V = gf.vertice.cache()
-        E = gf.edges.select("*").toPandas()
+        V = gf.vertices.cache()
+        E = gf.edges.select('*').toPandas()
         f = len(E.loc[E['src'] < 0])
         c = len(E.loc[E['src'] < 0])
 
         # Turn the edge table E into a dictionary, where each key
         # is a tuple containing the edge and all value is 1
-        E_hash = {k:1 for k in product(E['src'], E['dst'])}
+        # E_hash = {k:1 for k in product(E['src'], E['dst'])}
 
         # Attach the indegree and outdegree for the vertices
         inDegree, outDegree = (gf.inDegrees(), gf.outDegrees())
         V = V.join(inDegree, V['id'] == inDegree['id'], 'left_outer')
         V = V.join(outDegree, V['id'] == outDegree['id'], 'left_outer')
         # Let null entry in the degree column to be 0
-        V = V.na.fill('inDegree':0, 'outDegree':0)
+        V = V.na.fill({'inDegree': 0, 'outDegree': 0})
 
         # Define pandas UDAF to compute the modualrity within a single
         # label group
-        @pandas_udf("int", PandasUDFType.AGG)
-        def group_modularity(ID, nodeType, label, inDegree, outDegree):
+        @pandas_udf("double", PandasUDFType.AGG)
+        def group_modularity(ID, nodeType, label,
+                             inDegree, outDegree):
             # For each group, split the nodes into two parts by node type
             users = [{i, l, inD, outD} for (i, nT, l, inD, outD)
                     in zip(ID, nodeType, label, inDegree, outDegree)
@@ -144,33 +146,38 @@ class GHnet:
 
             # Calculate indegree*outdegree/f (or c) for both users and labels
             # and call it kappa
-            kappa_c = {k:k[0]*k[1]/c
+            kappa_c = {k:(int(users.loc[users['id'] == k[0]]['inDegree']) *
+                       int(repos.loc[repos['id'] == k[1]]['outDegree']) / c)
                        for k in product(users['id'], repos['id'])}
-            kappa_f = {k:k[0]*k[1]/f for
-                       k in product(repos['id'], users['id'])}
+            kappa_f = {k:(int(repos.loc[repos['id'] == k[0]]['inDegree']) *
+                       int(users.loc[users['id'] == k[1]]['outDegree']) / f)
+                       for k in product(repos['id'], users['id'])}
 
             # Calculate Modularity indurced from users to repos and
             # repos to users
             Q_c = sum([-kappa_c[k]
-                      if E_hash.get_value(k) is Not None else 1 - kappa_c[k]
+                      if len(E.loc[E['src'] == k[0] & E['dst'] == k[1]]) != 0
+                      else 1 - kappa_c[k]
                       for k in kappa_c.keys()])
             Q_f = sum([-kappa_f[k]
-                      if E_hash.get_value(k) is not None else 1 - kappa_f[k]
+                      if len(E.loc[E['src'] == k[0] & E['dst'] == k[1]]) != 0
+                      else 1 - kappa_f[k]
                       for k in kappa_f.keys()])
             # Sum the two types of modularity
             Q = Q_c + Q_f
             return Q
 
         # Filter the nodes without a label
-        Q = V.filter(V['label'].isNotNull()) \
-            # Group by label
-            .group_by("label") \
-            # Calculate the modularity within a label group
-            .agg(group_modularity(V['id', 'nodeType', 'label', 'inDegree',
-                                    'outDegree']).alias('Q')) \
-            .agg(F.sum(F.col('Q'))).collect()   # Sum modularities for all groups
+        Q = (V.filter(V['label'].isNotNull())
+             # Group by label
+             .group_by("label")
+             # Calculate the modularity within a label group
+             .agg(group_modularity(V['id', 'nodeType', 'label', 'inDegree',
+                                    'outDegree']).alias('Q'))
+             .agg(F.sum(F.col('Q'))).collect()[0][0])   # Sum modularities for all groups
 
-        return Q/(f+c)
+        Q = float(Q)/(f+c)
+        return Q
 
 
 
