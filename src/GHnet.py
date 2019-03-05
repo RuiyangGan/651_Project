@@ -177,7 +177,7 @@ class GHnet:
 
 
 
-    def LPAb(self, numIter, modularity=True):
+    def LPAImp(self, numIter, modularity=True):
         """Label propogation algorithm for bipartite networks with synchronous
         updating scheme; Return a data frame with columns which containts the
         vertices ID, labeling assignment and modularity (if specified to
@@ -195,14 +195,20 @@ class GHnet:
                              types.IntegerType())
         v = self.gf.vertices.withColumn('label',
                 initLabelUDF(F.col('id'), F.col('nodeType')))
+        # Add edges for every node that goes to itself
+        E_self = self.SS.createDataFrame(v.select(F.col('id')).rdd)
+        E = AM.getCachedDataFrame(self.gf.edges.union(
+                E_self.withColumn('dst', F.col('id'))
+                .withColumnRenamed('id', 'src')))
 
         # Create a new graphframe object with labels attached
-        LPAbgf = GraphFrame(v, self.gf.edges)
+        LPAbgf = GraphFrame(v, E)
 
         # Create a UDAF (User Defined Aggregate Function) that returns the most frequent
         # label
         @pandas_udf("int", PandasUDFType.GROUPED_AGG)
         def maxLabel_udf(label_list):
+            label_list = list(filter(None, label_list))
             LabelCounts = Counter(label_list)
             mostCommonLabels = [i[0] for i in LabelCounts.items()
                                 if i[1] == max(LabelCounts.values())]
@@ -248,8 +254,9 @@ class GHnet:
                 )
 
                 cachedvNew = AM.getCachedDataFrame(vNew)
-                LPAbgf = GraphFrame(cachedvNew, LPAbgf.edges)
-
+                LPAbgf = GraphFrame(cachedvNew, E)
+        # Delete the edges that goes from itself
+        LPAbgf = GraphFrame(LPAbgf.vertices, self.gf.edges)
         return LPAbgf
 
 
