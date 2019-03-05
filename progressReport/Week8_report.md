@@ -24,6 +24,7 @@ million of edges is not a good idea
 1. Deploy code on distributed computing cluster seems to be more difficult than I expect
 (dependency issue for other computing nodes)
 
+
 ## What I aim to complete this upcoming Week (Week 7, Mar 02 - Mar 08)
 
 1. Finish the tutorial on pyspark and graphframe
