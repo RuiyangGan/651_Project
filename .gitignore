@@ -110,4 +110,7 @@ github.auth
 data/*.txt
 data/*.parquet
 
+# Login to the EMR
+emrLogin
+emrCp
 
