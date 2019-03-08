@@ -13,7 +13,6 @@ from graphframes.lib import AggregateMessages as AM
 from collections import Counter
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import sys
 
 
@@ -98,14 +97,6 @@ class GHnet:
             plt.title('Fork degree distribution' if deg_type == 'f' \
                     else 'Contribution degree distribution')
         return degree_dtf
-
-
-    def userPageRank(self):
-        pass
-
-
-    def repoPageRank(self):
-        pass
 
 
     def delta(x, y):
